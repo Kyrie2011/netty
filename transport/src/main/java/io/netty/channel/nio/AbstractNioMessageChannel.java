@@ -76,6 +76,7 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        // 循环不断读取Buffer中的数据（实质是新建的连接）
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;
@@ -94,10 +95,12 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
                 int size = readBuf.size();
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
+                    // 传播读取事件
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
                 readBuf.clear();
                 allocHandle.readComplete();
+                // 传播读取完成事件
                 pipeline.fireChannelReadComplete();
 
                 if (exception != null) {

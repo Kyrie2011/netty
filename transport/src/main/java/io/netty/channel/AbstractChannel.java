@@ -70,9 +70,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      */
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
-        id = newId();
-        unsafe = newUnsafe();
-        pipeline = newChannelPipeline();
+        id = newId();  // Channel 全局唯一 id
+        unsafe = newUnsafe(); // unsafe 操作底层读写
+        pipeline = newChannelPipeline(); // pipeline 负责业务处理器编排
     }
 
     /**
@@ -476,9 +476,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
 
             AbstractChannel.this.eventLoop = eventLoop;
 
+            // Reactor线程内部调用
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
+                // 外部线程调用
                 try {
                     eventLoop.execute(new Runnable() {
                         @Override
@@ -505,20 +507,25 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                // 调用JDK底层的register()进行注册
                 doRegister();
                 neverRegistered = false;
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+                // 触发handlerAdd事件
                 pipeline.invokeHandlerAddedIfNeeded();
 
                 safeSetSuccess(promise);
+                // 触发channelRegistered事件
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
+                // 次channel还未注册绑定地址(ip:port)，所以处于非活跃状态
                 if (isActive()) {
                     if (firstRegistration) {
+                        // Channel 当前状态为活跃时，触发 channelActive 事件
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
                         // This channel was registered before and autoRead() is set. This means we need to begin read
